@@ -1,0 +1,4 @@
+; This is the default configuration for the remoteStorage provider
+
+filesDirectory = "/PATH/TO/APP/data/files"
+
