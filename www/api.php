@@ -25,21 +25,51 @@ try {
     
     $rs = new RemoteResourceServer($config->getValue("oauthTokenEndpoint"));
 
-    if($restInfo->isPublicRequest() || $request->headerExists("HTTP_AUTHORIZATION")) { 
-        // FIXME: a bit ugly to deal with public requests...
-        $token = $restInfo->isPublicRequest() ? NULL : $rs->verify($request->getHeader("HTTP_AUTHORIZATION"));
+    if($restInfo->isPublicRequest() && !$request->headerExists("HTTP_AUTHORIZATION")) { 
+        // only GET of item is allowed, nothing else
+        if($restInfo->isDirectoryRequest()) {
+            throw new RemoteStorageException("invalid_request", "not allowed to list contents of public folder");
+        }
+        // public but not listing, return file if it exists...
+        $file = realpath($rootDirectory . $restInfo->getPathInfo());
+        if(FALSE === $file || !is_file($file)) {
+            throw new RemoteStorageException("not_found", "the file was not found");
+        }
+        // $mimeType = xattr_get($file, 'mime_type');
+        $response->setHeader("Content-Type", $mimeType);
+        $response->setContent(file_get_contents($file));
+    } else if ($request->headerExists("HTTP_AUTHORIZATION")) {
+        // not public or public with Authorization header
+        $token = $rs->verify($request->getHeader("HTTP_AUTHORIZATION"));
 
         // handle API
         switch($restInfo->getRequestMethod()) {
-
             case "GET":
                 $ro = $restInfo->getResourceOwner();
+                if($ro !== $token['resource_owner_id']) {
+                    throw new RemoteStorageException("invalid_request", "you are not allowed to access files not belonging to you or to a public directory");
+                }
 
-                if($restInfo->isPublicRequest()) {
-                    if($restInfo->isDirectoryRequest()) {
-                        throw new RemoteStorageException("invalid_request", "not allowed to list contents of public folder");
+                // verify scope
+                $c = $restInfo->getCollection();
+                $scope = explode(" ", $token['scope']);
+                if(!in_array($c . ":r", $scope) && !in_array($c . ":rw", $scope) && !in_array(":rw", $scope) && !in_array(":r", $scope)) {
+                    throw new VerifyException("insufficient_scope", "need read or write scope for this collection");
+                }
+
+                if($restInfo->isDirectoryRequest()) {
+                    // return directory listing
+                    $dir = realpath($rootDirectory . $restInfo->getPathInfo());
+                    if(FALSE === $dir || !is_dir($dir)) {
+                        throw new RemoteStorageException("not_found", "the directory was not found");
                     }
-                    // public but not listing, return file if it exists...
+                    $entries = array();
+                    foreach(glob($dir . DIRECTORY_SEPARATOR . "*", GLOB_MARK) as $e) {
+                        $entries[basename($e)] = filemtime($e);
+                    }
+                    $response->setContent(json_encode($entries));
+                } else { 
+                    // accessing file, return file if it exists...
                     $file = realpath($rootDirectory . $restInfo->getPathInfo());
                     if(FALSE === $file || !is_file($file)) {
                         throw new RemoteStorageException("not_found", "the file was not found");
@@ -47,39 +77,6 @@ try {
                     // $mimeType = xattr_get($file, 'mime_type');
                     $response->setHeader("Content-Type", $mimeType);
                     $response->setContent(file_get_contents($file));
-                } else {
-                    if($ro !== $token['resource_owner_id']) {
-                        throw new RemoteStorageException("invalid_request", "you are not allowed to access files not belonging to you or to a public directory");
-                    }
-
-                    // verify scope
-                    $c = $restInfo->getCollection();
-                    $scope = explode(" ", $token['scope']);
-                    if(!in_array($c . ":r", $scope) && !in_array($c . ":rw", $scope)) {
-                        throw new VerifyException("insufficient_scope", "need read or write scope for this collection");
-                    }
-
-                    if($restInfo->isDirectoryRequest()) {
-                        // return directory listing
-                        $dir = realpath($rootDirectory . $restInfo->getPathInfo());
-                        if(FALSE === $dir || !is_dir($dir)) {
-                            throw new RemoteStorageException("not_found", "the directory was not found");
-                        }
-                        $entries = array();
-                        foreach(glob($dir . DIRECTORY_SEPARATOR . "*", GLOB_MARK) as $e) {
-                            $entries[basename($e)] = filemtime($e);
-                        }
-                        $response->setContent(json_encode($entries));
-                    } else { 
-                        // accessing your own file, go ahead, return file if it exists...
-                        $file = realpath($rootDirectory . $restInfo->getPathInfo());
-                        if(FALSE === $file || !is_file($file)) {
-                            throw new RemoteStorageException("not_found", "the file was not found");
-                        }
-                        // $mimeType = xattr_get($file, 'mime_type');
-                        $response->setHeader("Content-Type", $mimeType);
-                        $response->setContent(file_get_contents($file));
-                    }
                 }
                 break;
     
@@ -95,7 +92,7 @@ try {
                 // verify scope
                 $c = $restInfo->getCollection();
                 $scope = explode(" ", $token['scope']);
-                if(!in_array($c . ":rw", $scope)) {
+                if(!in_array($c . ":rw", $scope) && !in_array(":rw", $scope)) {
                         throw new VerifyException("insufficient_scope", "need write scope for this collection");
                 }
 
