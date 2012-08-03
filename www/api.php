@@ -96,7 +96,7 @@ try {
                     if($restInfo->isDirectoryRequest()) {
                         // return directory listing
                         $dir = realpath($rootDirectory . $restInfo->getPathInfo());
-                        if(FALSE === $dir || !is_directory($dir)) {
+                        if(FALSE === $dir || !is_dir($dir)) {
                             throw new RemoteStorageException("not_found", "the directory was not found");
                         }
                         $entries = array();
@@ -104,15 +104,16 @@ try {
                             $entries[basename($e)] = filemtime($e);
                         }
                         $response->setContent(json_encode($entries));
+                    } else { 
+                        // accessing your own file, go ahead, return file if it exists...
+                        $file = realpath($rootDirectory . $restInfo->getPathInfo());
+                        if(FALSE === $file || !is_file($file)) {
+                            throw new RemoteStorageException("not_found", "the file was not found");
+                        }
+                        // $mimeType = xattr_get($file, 'mime_type');
+                        $response->setHeader("Content-Type", $mimeType);
+                        $response->setContent(file_get_contents($file));
                     }
-                    // accessing your own file, go ahead, return file if it exists...
-                    $file = realpath($rootDirectory . $restInfo->getPathInfo());
-                    if(FALSE === $file || !is_file($file)) {
-                        throw new RemoteStorageException("not_found", "the file was not found");
-                    }
-                    // $mimeType = xattr_get($file, 'mime_type');
-                    $response->setHeader("Content-Type", $mimeType);
-                    $response->setContent(file_get_contents($file));
                 }
                 break;
     
@@ -140,7 +141,7 @@ try {
                     // upload a file
                     $file = realpath($rootDirectory . $restInfo->getPathInfo()); 
                     $dir = dirname($file);
-                    if(FALSE === $dir || !is_directory($dir)) {
+                    if(FALSE === $dir || !is_dir($dir)) {
                         throw new RemoteStorageException("not_found", "the directory was not found");
                     }
 
