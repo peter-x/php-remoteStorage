@@ -139,14 +139,6 @@ class HttpRequest {
         return $this->_pathInfo;
     }
 
-    public function getRestInfo() {
-        return new RestInfo($this->getPathInfo(), $this->getRequestMethod());
-    }
-    
-    public function getRemoteStorageRestInfo() {
-        return new RemoteStorageRestInfo($this->getPathInfo(), $this->getRequestMethod());
-    }
-
     public function getBasicAuthUser() {
         return $this->headerExists("PHP_AUTH_USER") ? $this->getHeader("PHP_AUTH_USER") : NULL;
     }
@@ -155,125 +147,58 @@ class HttpRequest {
         return $this->headerExists("PHP_AUTH_PW") ? $this->getHeader("PHP_AUTH_PW") : NULL;
     }
 
-}
-
-class RemoteStorageRestInfo {
-
-    private $_pathInfo;
-    private $_requestMethod;
-    private $_explodedPath;
-
-    public function __construct($pathInfo, $requestMethod) {
-        $this->_pathInfo = $pathInfo;
-        $this->_requestMethod = $requestMethod;
-        $this->_explodedPath = NULL;
-
-        if(NULL !== $this->_pathInfo) {
-            if(1 < strlen($this->_pathInfo)) {
-                $this->_explodedPath = explode("/", substr($this->_pathInfo, 1));
-            }
-        }
-    }
-
     public function getCollection() {
-        if(is_array($this->_explodedPath) && 1 < count($this->_explodedPath)) {
-            return $this->_explodedPath[1];
+        if(!is_string($this->_pathInfo)) {
+            return FALSE;
         }
-        return NULL;
-    }
-
-    public function getPathInfo() {
-        return $this->_pathInfo;
-    }
-
-    public function getRequestMethod() {
-        return $this->_requestMethod;
-    }
-
-    public function getResourceOwner() {
-        if(is_array($this->_explodedPath) && 0 < count($this->_explodedPath)) {
-            return $this->_explodedPath[0];
+        if(strlen($this->_pathInfo) < 2) {
+            return FALSE;
         }
-        return NULL;
-    }
-
-    public function isDirectoryRequest() {
-        return empty($this->_explodedPath[count($this->_explodedPath)-1]);
-    }
-
-    public function isResourceRequest() {
-        return !$this->isDirectory();
-    }
-
-    public function isPublicRequest() {
-        if(is_array($this->_explodedPath) && 1 < count($this->_explodedPath)) {
-            return $this->_explodedPath[1] === "public";
+        $e = explode("/", $this->_pathInfo);
+        if(!empty($e[0])) {
+            return FALSE;
         }
-        return FALSE;
-    }
-
-}
-
-class RestInfo {
-
-    private $_pathInfo;
-    private $_requestMethod;
-    private $_explodedPath;
-
-    public function __construct($pathInfo, $requestMethod) {
-        $this->_pathInfo = $pathInfo;
-        $this->_requestMethod = $requestMethod;
-        $this->_explodedPath = NULL;
-
-        if(NULL !== $this->_pathInfo) {
-            if(1 < strlen($this->_pathInfo)) {
-                $this->_explodedPath = explode("/", substr($this->_pathInfo, 1));
-            }
-        }
-    }
-
-    private function _getRequestMethod() {
-        return $this->_requestMethod;
-    }
-
-    public function getCollection() {
-        if(is_array($this->_explodedPath) && 0 < count($this->_explodedPath)) {
-            return $this->_explodedPath[0];
-        }
-        return NULL;
+        unset($e[sizeof($e)-1]);
+        unset($e[0]);
+        return empty($e) ? FALSE : implode("/", $e);
     }
 
     public function getResource() {
-        if(is_array($this->_explodedPath) && 1 < count($this->_explodedPath)) {
-            return $this->_explodedPath[1];
+        if(!is_string($this->_pathInfo)) {
+            return FALSE;
         }
-        return NULL;
+        if(strlen($this->_pathInfo) < 2) {
+            return FALSE;
+        }
+        $e = explode("/", $this->_pathInfo);
+        if(!empty($e[0])) {
+            return FALSE;
+        }
+        if(empty($e[sizeof($e)-1])) {
+            return FALSE;
+        }
+        return $e[sizeof($e)-1];
     }
 
-    private function _hasTrailingSlash() {
-        return empty($this->_explodedPath[count($this->_explodedPath)-1]);
-    }
-
-    public function match($requestMethod, $collectionName, $requireResource) {
-        if($requestMethod !== $this->_getRequestMethod()) {
+    public function matchRest($requestMethod, $collectionName, $requireResource) {
+        if($requestMethod !== $this->getRequestMethod()) {
             return FALSE;
         }
         if($collectionName !== $this->getCollection()) {
             return FALSE;
         }
-        if($requireResource) {
-            if(NULL === $this->getResource()) {
-                return FALSE;
-            }
-            if($this->_hasTrailingSlash()) {
-                return FALSE;
+        if(is_bool($requireResource)) {
+            if($requireResource) {
+                // we need *a* resource
+                return FALSE !== $this->getResource();
+            } else {
+                // we do *not* want a resource
+                return FALSE === $this->getResource();
             }
         } else {
-            if(!$this->_hasTrailingSlash()) {
-                return FALSE;
-            }
+            // we need a *specific* resource
+            return $requireResource === $this->getResource();
         }
-        return TRUE;
     }
 
 }
