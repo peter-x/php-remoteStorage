@@ -14,7 +14,7 @@ $response->setHeader("Access-Control-Allow-Origin", "*");
 try { 
     $config = new Config(dirname(__DIR__) . DIRECTORY_SEPARATOR . "config" . DIRECTORY_SEPARATOR . "remoteStorage.ini");
 
-    $rootDirectory = $this->_s->getValue('filesDirectory')
+    $rootDirectory = $config->getValue('filesDirectory');
 
     $incomingRequest = new IncomingHttpRequest();
     $request = $incomingRequest->getRequest();

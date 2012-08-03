@@ -143,7 +143,7 @@ class HttpRequest {
         return new RestInfo($this->getPathInfo(), $this->getRequestMethod());
     }
     
-    public function remoteStorageRestInfo() {
+    public function getRemoteStorageRestInfo() {
         return new RemoteStorageRestInfo($this->getPathInfo(), $this->getRequestMethod());
     }
 

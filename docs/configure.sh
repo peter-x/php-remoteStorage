@@ -6,6 +6,7 @@ INSTALL_DIR=`pwd`
 # create directories
 mkdir -p data
 mkdir -p data/logs
+mkdir -p data/files
 
 # set permissions
 chmod -R o+w data/
