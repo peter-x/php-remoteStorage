@@ -94,7 +94,7 @@ try {
 
                 // verify scope
                 $c = $restInfo->getCollection();
-                $scope = explode(" ", $token->scope);
+                $scope = explode(" ", $token['scope']);
                 if(!in_array($c . ":rw", $scope)) {
                     throw new RemoteStorageException("invalid_request", "insufficient scope");
                 }
@@ -105,16 +105,17 @@ try {
                     createDirectories(array($newDirectory));
                 } else {
                     // upload a file
-                    $file = realpath($rootDirectory . $restInfo->getPathInfo()); 
-                    $dir = dirname($file);
+                    $dir = dirname($rootDirectory . $restInfo->getPathInfo()); 
+                    createDirectories(array($dir));
                     if(FALSE === $dir || !is_dir($dir)) {
-                        throw new RemoteStorageException("not_found", "the directory was not found");
+                        throw new RemoteStorageException("not_found", "the directory '" . $dir . "' was not found");
                     }
 
-                    $contentType = $request->getHeader("Content-Type");
+                    $file = $rootDirectory . $restInfo->getPathInfo();
+                    $contentType = $request->headerExists("Content-Type") ? $request->getHeader("Content-Type") : "text/plain";
                     file_put_contents($file, $request->getContent());
                     // also store the accompanying mime type in the file system extended attribute
-                    xattr_set($file, 'mime_type', $contentType);
+                    //xattr_set($file, 'mime_type', $contentType);
                 }   
                 break;
 
@@ -166,7 +167,7 @@ function createDirectories(array $directories) {
     foreach($directories as $d) { 
         if(!file_exists($d)) {
             if (@mkdir($d, 0775, TRUE) === FALSE) {
-                throw new RemoteStorageException("error", "unable to create directory");
+                throw new RemoteStorageException("error", "unable to create directory '" . $d . "'");
             }
         }
     }
