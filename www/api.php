@@ -1,5 +1,41 @@
 <?php
 
+class RemoteStorageException extends Exception {
+
+    private $_description;
+
+    public function __construct($message, $description, $code = 0, Exception $previous = null) {
+        $this->_description = $description;
+        parent::__construct($message, $code, $previous);
+    }
+
+    public function getDescription() {
+        return $this->_description;
+    }
+
+    public function getResponseCode() {
+        switch($this->message) {
+            case "not_found":
+                return 404;
+            case "invalid_request":
+                return 400;
+            default:
+                return 400;
+        }
+    }
+
+    public function getLogMessage($includeTrace = FALSE) {
+        $msg = 'Message    : ' . $this->getMessage() . PHP_EOL .
+               'Description: ' . $this->getDescription() . PHP_EOL;
+        if($includeTrace) {
+            $msg .= 'Trace      : ' . PHP_EOL . $this->getTraceAsString() . PHP_EOL;
+        }
+        return $msg;
+    }
+
+
+}
+
 require_once "../lib/Config.php";
 require_once "../lib/Http/Uri.php";
 require_once "../lib/Http/HttpRequest.php";
@@ -42,7 +78,7 @@ try {
                     if(FALSE === $file || !is_file($file)) {
                         throw new RemoteStorageException("not_found", "the file was not found");
                     }
-                    $mimeType = xattr_get($file, 'mime_type');
+                    // $mimeType = xattr_get($file, 'mime_type');
                     $response->setHeader("Content-Type", $mimeType);
                     $response->setContent(file_get_contents($file));
                 } else {
@@ -52,7 +88,7 @@ try {
 
                     // verify scope
                     $c = $restInfo->getCollection();
-                    $scope = explode(" ", $token->scope);
+                    $scope = explode(" ", $token['scope']);
                     if(!in_array($c . ":r", $scope) && !in_array($c . ":rw", $scope)) {
                         throw new RemoteStorageException("invalid_request", "insufficient scope");
                     }
@@ -70,6 +106,13 @@ try {
                         $response->setContent(json_encode($entries));
                     }
                     // accessing your own file, go ahead, return file if it exists...
+                    $file = realpath($rootDirectory . $restInfo->getPathInfo());
+                    if(FALSE === $file || !is_file($file)) {
+                        throw new RemoteStorageException("not_found", "the file was not found");
+                    }
+                    // $mimeType = xattr_get($file, 'mime_type');
+                    $response->setHeader("Content-Type", $mimeType);
+                    $response->setContent(file_get_contents($file));
                 }
                 break;
     

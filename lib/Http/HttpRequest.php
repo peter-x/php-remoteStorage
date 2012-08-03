@@ -176,8 +176,8 @@ class RemoteStorageRestInfo {
     }
 
     public function getCollection() {
-        if(is_array($this->_explodedPath) && 0 < count($this->_explodedPath)) {
-            return $this->_explodedPath[0];
+        if(is_array($this->_explodedPath) && 1 < count($this->_explodedPath)) {
+            return $this->_explodedPath[1];
         }
         return NULL;
     }
