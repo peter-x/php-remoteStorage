@@ -36,6 +36,7 @@ try {
             throw new RemoteStorageException("not_found", "the file was not found");
         }
         // $mimeType = xattr_get($file, 'mime_type');
+        $mimeType = "text/plain";
         $response->setHeader("Content-Type", $mimeType);
         $response->setContent(file_get_contents($file));
     } else if ($request->headerExists("HTTP_AUTHORIZATION")) {
@@ -47,14 +48,20 @@ try {
             case "GET":
                 $ro = $restInfo->getResourceOwner();
                 if($ro !== $token['resource_owner_id']) {
-                    throw new RemoteStorageException("invalid_request", "you are not allowed to access files not belonging to you or to a public directory");
+                    throw new RemoteStorageException("access_denied", "not allowed to access files and directories outside resource owner directory");
                 }
 
                 // verify scope
                 $c = $restInfo->getCollection();
-                $scope = explode(" ", $token['scope']);
-                if(!in_array($c . ":r", $scope) && !in_array($c . ":rw", $scope) && !in_array(":rw", $scope) && !in_array(":r", $scope)) {
-                    throw new VerifyException("insufficient_scope", "need read or write scope for this collection");
+                if(NULL === $c) {
+                    if(!in_array(":rw", $scope) && !in_array(":r", $scope)) {
+                        throw new VerifyException("insufficient_scope", "need read or write scope for this collection");
+                    }
+                } else {
+                    $scope = explode(" ", $token['scope']);
+                    if(!in_array($c . ":r", $scope) && !in_array($c . ":rw", $scope) && !in_array(":rw", $scope) && !in_array(":r", $scope)) {
+                        throw new VerifyException("insufficient_scope", "need read or write scope for this collection");
+                    }
                 }
 
                 if($restInfo->isDirectoryRequest()) {
@@ -75,6 +82,7 @@ try {
                         throw new RemoteStorageException("not_found", "the file was not found");
                     }
                     // $mimeType = xattr_get($file, 'mime_type');
+                    $mimeType = "text/plain";
                     $response->setHeader("Content-Type", $mimeType);
                     $response->setContent(file_get_contents($file));
                 }
@@ -83,7 +91,7 @@ try {
             case "PUT":
                 $ro = $restInfo->getResourceOwner();
                 if($ro !== $token['resource_owner_id']) {
-                    throw new RemoteStorageException("invalid_request", "you are not allowed to write files to a location not belonging to you");
+                    throw new RemoteStorageException("access_denied", "not allowed to write files outside resource owner directory");
                 }
 
                 $userDirectory = $rootDirectory . DIRECTORY_SEPARATOR . $ro;
@@ -91,9 +99,15 @@ try {
 
                 // verify scope
                 $c = $restInfo->getCollection();
-                $scope = explode(" ", $token['scope']);
-                if(!in_array($c . ":rw", $scope) && !in_array(":rw", $scope)) {
+                if(NULL === $c) {
+                    if(!in_array(":rw", $scope)) {
                         throw new VerifyException("insufficient_scope", "need write scope for this collection");
+                    }
+                } else {
+                    $scope = explode(" ", $token['scope']);
+                    if(!in_array($c . ":rw", $scope) && !in_array(":rw", $scope)) {
+                        throw new VerifyException("insufficient_scope", "need write scope for this collection");
+                    }
                 }
 
                 if($restInfo->isDirectoryRequest()) {
@@ -105,7 +119,7 @@ try {
                     $dir = dirname($rootDirectory . $restInfo->getPathInfo()); 
                     createDirectories(array($dir));
                     if(FALSE === $dir || !is_dir($dir)) {
-                        throw new RemoteStorageException("not_found", "the directory '" . $dir . "' was not found");
+                        throw new RemoteStorageException("not_found", "the directory was not found");
                     }
 
                     $file = $rootDirectory . $restInfo->getPathInfo();
