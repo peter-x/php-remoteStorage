@@ -56,7 +56,7 @@ try {
                     $c = $restInfo->getCollection();
                     $scope = explode(" ", $token['scope']);
                     if(!in_array($c . ":r", $scope) && !in_array($c . ":rw", $scope)) {
-                        throw new RemoteStorageException("invalid_request", "insufficient scope");
+                        throw new VerifyException("insufficient_scope", "need read or write scope for this collection");
                     }
 
                     if($restInfo->isDirectoryRequest()) {
@@ -96,7 +96,7 @@ try {
                 $c = $restInfo->getCollection();
                 $scope = explode(" ", $token['scope']);
                 if(!in_array($c . ":rw", $scope)) {
-                    throw new RemoteStorageException("invalid_request", "insufficient scope");
+                        throw new VerifyException("insufficient_scope", "need write scope for this collection");
                 }
 
                 if($restInfo->isDirectoryRequest()) {

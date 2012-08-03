@@ -38,7 +38,6 @@ class VerifyException extends Exception {
         return $msg;
     }
 
-
 }
 
 class RemoteResourceServer {
