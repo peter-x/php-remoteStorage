@@ -25,7 +25,11 @@ try {
     
     $rs = new RemoteResourceServer($config->getValue("oauthTokenEndpoint"));
 
-    if($restInfo->isPublicRequest() && !$request->headerExists("HTTP_AUTHORIZATION")) { 
+    if("OPTIONS" === $restInfo->getRequestMethod()) {
+        $response->setHeader("Access-Control-Allow-Origin", "*");
+        $response->setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Origin");
+        $response->setHeader("Access-Control-Allow-Methods", "GET, PUT, DELETE");
+    } else if($restInfo->isPublicRequest() && !$request->headerExists("HTTP_AUTHORIZATION")) { 
         // only GET of item is allowed, nothing else
         if($restInfo->isDirectoryRequest()) {
             throw new RemoteStorageException("invalid_request", "not allowed to list contents of public folder");
