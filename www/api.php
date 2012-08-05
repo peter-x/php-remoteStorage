@@ -139,10 +139,6 @@ try {
 
                 break;
 
-            case "OPTIONS":
-
-                break;
-
             default:
                 // ...
                 break;
