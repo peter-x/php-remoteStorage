@@ -135,10 +135,41 @@ try {
                 break;
 
             case "DELETE":
+                $ro = $restInfo->getResourceOwner();
+                if($ro !== $token['resource_owner_id']) {
+                    throw new RemoteStorageException("access_denied", "not allowed to write files outside resource owner directory");
+                }
 
+                $userDirectory = $rootDirectory . DIRECTORY_SEPARATOR . $ro;
 
+                // verify scope
+                $c = $restInfo->getCollection();
+                if(NULL === $c) {
+                    if(!in_array(":rw", $scope)) {
+                        throw new VerifyException("insufficient_scope", "need write scope for this collection");
+                    }
+                } else {
+                    $scope = explode(" ", $token['scope']);
+                    if(!in_array($c . ":rw", $scope) && !in_array(":rw", $scope)) {
+                        throw new VerifyException("insufficient_scope", "need write scope for this collection");
+                    }
+                }
+
+                if($restInfo->isDirectoryRequest()) {
+                    throw new RemoteStorageException("invalid_request", "directories cannot be deleted");
+                }
+
+                $file = $rootDirectory . $restInfo->getPathInfo();            
+                if(!file_exists($file)) {
+                    throw new RemoteStorageException("not_found", "file not found");
+                }
+                if(!is_file($file)) {
+                    throw new RemoteStorageException("invalid_request", "object is not a file");
+                }
+                if (@unlink($file) === FALSE) {
+                    throw new Exception("unable to delete file");
+                }
                 break;
-
             default:
                 // ...
                 break;
