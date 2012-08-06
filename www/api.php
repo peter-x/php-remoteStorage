@@ -37,10 +37,13 @@ try {
         // public but not listing, return file if it exists...
         $file = realpath($rootDirectory . $restInfo->getPathInfo());
         if(FALSE === $file || !is_file($file)) {
-            throw new RemoteStorageException("not_found", "the file was not found");
+            throw new RemoteStorageException("not_found", "file not found");
         }
-        // $mimeType = xattr_get($file, 'mime_type');
-        $mimeType = "text/plain";
+        if(function_exists("xattr_get")) {
+            $mimeType = xattr_get($file, 'mime_type');
+        } else {
+            $mimeType = "application/json";
+        }
         $response->setHeader("Content-Type", $mimeType);
         $response->setContent(file_get_contents($file));
     } else if ($request->headerExists("HTTP_AUTHORIZATION")) {
@@ -52,7 +55,7 @@ try {
             case "GET":
                 $ro = $restInfo->getResourceOwner();
                 if($ro !== $token['resource_owner_id']) {
-                    throw new RemoteStorageException("access_denied", "not allowed to access files and directories outside resource owner directory");
+                    throw new RemoteStorageException("access_denied", "storage path belongs to other user");
                 }
 
                 // verify scope
@@ -84,10 +87,13 @@ try {
                     // accessing file, return file if it exists...
                     $file = realpath($rootDirectory . $restInfo->getPathInfo());
                     if(FALSE === $file || !is_file($file)) {
-                        throw new RemoteStorageException("not_found", "the file was not found");
+                        throw new RemoteStorageException("not_found", "file not found");
                     }
-                    // $mimeType = xattr_get($file, 'mime_type');
-                    $mimeType = "text/plain";
+                    if(function_exists("xattr_get")) {
+                        $mimeType = xattr_get($file, 'mime_type');
+                    } else {
+                        $mimeType = "application/json";
+                    }
                     $response->setHeader("Content-Type", $mimeType);
                     $response->setContent(file_get_contents($file));
                 }
@@ -96,7 +102,7 @@ try {
             case "PUT":
                 $ro = $restInfo->getResourceOwner();
                 if($ro !== $token['resource_owner_id']) {
-                    throw new RemoteStorageException("access_denied", "not allowed to write files outside resource owner directory");
+                    throw new RemoteStorageException("access_denied", "storage path belongs to other user");
                 }
 
                 $userDirectory = $rootDirectory . DIRECTORY_SEPARATOR . $ro;
@@ -122,23 +128,23 @@ try {
                 } else {
                     // upload a file
                     $dir = dirname($rootDirectory . $restInfo->getPathInfo()); 
-                    createDirectories(array($dir));
-                    if(FALSE === $dir || !is_dir($dir)) {
-                        throw new RemoteStorageException("not_found", "the directory was not found");
+                    if(FALSE === $dir) {
+                        createDirectories(array($dir));
                     }
-
                     $file = $rootDirectory . $restInfo->getPathInfo();
-                    $contentType = $request->headerExists("Content-Type") ? $request->getHeader("Content-Type") : "text/plain";
+                    $contentType = $request->headerExists("Content-Type") ? $request->getHeader("Content-Type") : "application/json";
                     file_put_contents($file, $request->getContent());
                     // also store the accompanying mime type in the file system extended attribute
-                    //xattr_set($file, 'mime_type', $contentType);
+                    if(function_exists("xattr_set")) {
+                        xattr_set($file, 'mime_type', $contentType);
+                    }
                 }   
                 break;
 
             case "DELETE":
                 $ro = $restInfo->getResourceOwner();
                 if($ro !== $token['resource_owner_id']) {
-                    throw new RemoteStorageException("access_denied", "not allowed to write files outside resource owner directory");
+                    throw new RemoteStorageException("access_denied", "storage path belongs to other user");
                 }
 
                 $userDirectory = $rootDirectory . DIRECTORY_SEPARATOR . $ro;
@@ -210,7 +216,7 @@ function createDirectories(array $directories) {
     foreach($directories as $d) { 
         if(!file_exists($d)) {
             if (@mkdir($d, 0775, TRUE) === FALSE) {
-                throw new RemoteStorageException("error", "unable to create directory '" . $d . "'");
+                throw new Exception("unable to create directory");
             }
         }
     }
