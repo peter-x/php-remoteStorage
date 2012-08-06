@@ -71,10 +71,11 @@ try {
                 if($restInfo->isDirectoryRequest()) {
                     // return directory listing
                     $dir = realpath($rootDirectory . $restInfo->getPathInfo());
-                    if(FALSE === $dir || !is_dir($dir)) {
-                        throw new RemoteStorageException("not_found", "the directory was not found");
-                    }
                     $entries = array();
+                    if(FALSE === $dir || !is_dir($dir)) {
+                        // non existing directory returns empty list
+                        $response->setContent(json_encode($entries));
+                    }
                     foreach(glob($dir . DIRECTORY_SEPARATOR . "*", GLOB_MARK) as $e) {
                         $entries[basename($e)] = filemtime($e);
                     }
