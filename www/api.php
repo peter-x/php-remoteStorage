@@ -78,6 +78,7 @@ try {
                     if(FALSE === $dir || !is_dir($dir)) {
                         // non existing directory returns empty list
                         $response->setContent(json_encode($entries));
+                        break;
                     }
                     foreach(glob($dir . DIRECTORY_SEPARATOR . "*", GLOB_MARK) as $e) {
                         $entries[basename($e)] = filemtime($e);
