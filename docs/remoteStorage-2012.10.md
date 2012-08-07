@@ -64,20 +64,21 @@ There are four HTTP verbs available in the _remoteStorage_ API:
 * `DELETE` - delete a file
 * `OPTIONS` - advertizes CORS support, see section on Cross Origin Headers
 
-A _remoteStorage_ server has a *userRoot* directory, for instance:
+A _remoteStorage_ server has a *storageRoot* URI per user, a few examples:
 
     https://www.example.org/remoteStorage/api/john.doe/
+    https://john.example.org/
+    https://rs.example.org:8042/api.php/
 
-Here, `john.doe` is the user identifier. This does not need to be identifiable
-to the user and may very well be an opaque secure random generated user 
-identifier, as long as it is persistent every time the user returns to the 
-storage.
+Here, `john.doe` is the user identifier, and part of the *storageRoot*. 
 
-The user identifier is required in the URL because of public file sharing. The
-file needs to be "namespaced" for a particular user.
+A user identifier does not need to be a part of the *storageRoot*, it is up
+to the implementor to decide about this. The only requirements are that the 
+*storageRoot* is bound to the authenticated user and that it there is some
+way to have a `public` directory under this root belonging to the user.
 
 All calls to either of the above `GET`, `PUT`, `DELETE` and `OPTIONS` MUST be 
-to the *userRoot* or directories or files under this directory, for instance:
+to the *storageRoot* or directories or files under this directory, for instance:
 
     https://www.example.org/remoteStorage/api/john.doe/calendar/2012/10/14
 
@@ -146,11 +147,11 @@ Here `foo/` denotes a directory and `bar` denotes a file.
 
 In addition, the timpestamp of a directory MUST be identical to the most recent 
 timestamp of any file contained in that directory, no matter how "deep" in the 
-tree. This recurses up to the *userRoot*. 
+tree. This recurses up to the *storageRoot*. 
 
 For example suppose the following directory structure:
 
-    *userRoot*/ (12300)
+    *storageRoot*/ (12300)
        foo/   (12340)
          bar/ (12340)
            foobar (12340)
@@ -166,7 +167,7 @@ When implementing _remoteStorage_ on regular file systems it can be quite heavy
 to implement this when a file directory listing request comes in, so it may 
 be beneficial to implement this while storing (new) files using `PUT` requests. 
 At that time a _touch_ on all directories containing the updated file up to the 
-*userRoot* will take care of implementing this behavior.
+*storageRoot* will take care of implementing this behavior.
 
 ## Store a file
 A file is stored using the `PUT` verb. There is no `POST` because we want to 
@@ -217,7 +218,7 @@ forward slash, an error needs to be given back to the client:
     {"error":"invalid_request","error_description":"a directory cannot be deleted"}
 
 ## Public Files
-There is a "special" `public` directory in the *userRoot* indicating that all 
+There is a "special" `public` directory in the *storageRoot* indicating that all 
 files under this directory are public. This means the `GET` call for a file and
 ONLY a file, not a directory listing, is allowed without authorization. All 
 other requests need authorization as if they were not public. Requesting a file 
@@ -258,7 +259,7 @@ It is also possible the an application tries to access or write files or
 directories to which it does not have any permission. For example the user 
 `john.doe` authorized an application to access his calendar data, but the 
 application now tries to access data belonging to `jane.doe`, i.e. go outside
-the *userRoot* directory. This should not be allowed and an error should be 
+the *storageRoot* directory. This should not be allowed and an error should be 
 returned:
 
     HTTP/1.1 403 Forbidden
@@ -303,7 +304,7 @@ instance:
     PUT /remoteStorage/api/john.doe/calendar/2012/10/24 HTTP/1.1
 
 requires `calendar:rw` permissions. The `calendar` part of the scope refers to
-the first directory after the *userRoot*. This scope is also valid for the 
+the first directory after the *storageRoot*. This scope is also valid for the 
 `public` directory, so the same scope is valid for the next request:
 
     PUT /remoteStorage/api/john.doe/public/calendar/2012/10/24 HTTP/1.1
@@ -322,7 +323,7 @@ There are also two special scope values:
 * `:rw`
 
 These scopes, without directory, indicate they are valid for *all* directories 
-under *userRoot*. Care should be taken to not give this permission to 
+under *storageRoot*. Care should be taken to not give this permission to 
 applications that do not need it.
 
 # Application Registration
@@ -389,7 +390,7 @@ The applications are launched from the portal by providing it with additional
 parameters in the fragment part of the URL. There are two parameters 
 specified:
 
-* `rs_api_uri` - URL pointing to the *userRoot* at the storage server
+* `rs_api_uri` - URL pointing to the *storageRoot* at the storage server
 * `rs_authz_uri` - URL pointing to the OAuth authorize endpoint
 
 The `rs_api_uri` parameter is for example like specified before: 
