@@ -70,12 +70,10 @@ A _remoteStorage_ server has a *storageRoot* URI per user, a few examples:
     https://john.example.org/
     https://rs.example.org:8042/api.php/
 
-Here, `john.doe` is the user identifier, and part of the *storageRoot*. 
-
 A user identifier does not need to be a part of the *storageRoot*, it is up
 to the implementor to decide about this. The only requirements are that the 
-*storageRoot* is bound to the authenticated user and that it there is some
-way to have a `public` directory under this root belonging to the user.
+*storageRoot* is bound to the authenticated user and that there is some way to 
+have a `public` directory under this root belonging to the user.
 
 All calls to either of the above `GET`, `PUT`, `DELETE` and `OPTIONS` MUST be 
 to the *storageRoot* or directories or files under this directory, for instance:
@@ -267,16 +265,20 @@ returned:
 
     {"error":"access_denied","error_description":"storage path belongs to other user"}
 
-Other errors relating to the OAuth scope are specified by the HTTP Bearer 
-specification. The recommendations there MUST be followed.
+This error is only relevant if there is some way for the application to refer
+to another user's *storageRoot*. Depending on the implementation this may not
+be possible.
+
+Other errors relating to e.g. the OAuth scope are specified in _The OAuth 2.0 
+Authorization Framework: Bearer Token Usage_. This MUST be followed.
 
 # Authorization
-For the authorization, i.e.: what application is allowed to do what a subset of
-the OAuth specification is taken. The HTTP Bearer specification however is 
-used in its entirety. The OAuth server needs to implement version 2 of the 
-protocol. The following is a list of what is needed for the implementation:
+For the authorization, i.e.: what application is allowed to do what _The OAuth 
+2.0 Authorization Framework_ specification is used. The following is a list of 
+what is needed for the implementation:
 
 * Support the "Implicit Grant" type from section 4.2;
+* Use _The OAuth 2.0 Authorization Framework: Bearer Token Usage_
 * Bearer access tokens do not expire, i.e. they are valid until revoked;
 
 Before an application can use the _remoteStorage_ API it needs to obtain a 
@@ -390,17 +392,17 @@ The applications are launched from the portal by providing it with additional
 parameters in the fragment part of the URL. There are two parameters 
 specified:
 
-* `rs_api_uri` - URL pointing to the *storageRoot* at the storage server
-* `rs_authz_uri` - URL pointing to the OAuth authorize endpoint
+* `storage_root` - URL pointing to the *storageRoot*
+* `authorize_endpoint` - URL pointing to the OAuth authorize endpoint
 
-The `rs_api_uri` parameter is for example like specified before: 
+The `storage_root` parameter is for example like specified before: 
 `https://www.example.org/remoteStorage/api/john.doe/` 
-while the OAuth authorize endpoint points to the OAuth server in `rs_authz_uri`, 
-for example: `https://auth.example.org/oauth2/authorize`.
+while the OAuth authorize endpoint points to the OAuth server in 
+`authorize_endpoint`, for example: `https://auth.example.org/oauth2/authorize`.
 
 A full URL then looks like this:
 
-    https://todomvc.example.org/#rs_api_uri=https://www.example.org/remoteStorage/api/john.doe/&rs_authz_uri=https://auth.example.org/oauth2/authorize
+    https://todomvc.example.org/#storage_root=https://www.example.org/remoteStorage/api/john.doe/&authorize_endpoint=https://auth.example.org/oauth2/authorize
 
 # Versioning
 The application and the storage server need to negotiate a version of the 
@@ -426,6 +428,9 @@ to be sent back to the client indicating this:
 
 **FIXME**: maybe the server should just return a response anyway of whichever 
 version and indicate that in the `Content-Type` header???
+
+**FIXME**: this of course does not really work as **ALL** content types can
+be returned depending on what the user uploaded...
 
 # Storage First
 In order to avoid the discovery problems introduced by implementing Webfinger
