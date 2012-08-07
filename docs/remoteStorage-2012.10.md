@@ -1,3 +1,8 @@
+# Version
+
+This document describes the _remoteStorage_ API with version 
+**remoteStorage-2012.10**.
+
 # Introduction
 After gaining some experience by designing the _remoteStorage_ API as part of the
 _Unhosted_ project and using well established existing protocols we feel that
@@ -408,7 +413,7 @@ use:
 
 To specify a specific version use the following `Accept` header:
 
-    Accept: application/vnd.remoteStorage.2012.04+json
+    Accept: application/vnd.remoteStorage.2012.10+json
 
 If the request version is not supported by the server an error message SHOULD
 to be sent back to the client indicating this:
