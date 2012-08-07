@@ -193,6 +193,14 @@ backend.
 In addition, the `Content-Type` of the file MUST be retained and given back to
 the client on file retrieval. This is especially important for `public` files.
 
+In case a `PUT` request specifies a directory, i.e. the URL ends with a 
+forward slash (`/`), an error needs to be given back to the client:
+
+    HTTP/1.1 400 Bad Request
+    Content-Type: application/json
+
+    {"error":"invalid_request","error_description":"cannot store a directory"}
+
 **FIXME**: this may be a problem when implementing versioning and the 
 `Content-Type` header needs to contain the version?
 

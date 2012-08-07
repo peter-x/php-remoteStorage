@@ -75,13 +75,10 @@ try {
                     // return directory listing
                     $dir = realpath($rootDirectory . $restInfo->getPathInfo());
                     $entries = array();
-                    if(FALSE === $dir || !is_dir($dir)) {
-                        // non existing directory returns empty list
-                        $response->setContent(json_encode($entries));
-                        break;
-                    }
-                    foreach(glob($dir . DIRECTORY_SEPARATOR . "*", GLOB_MARK) as $e) {
-                        $entries[basename($e)] = filemtime($e);
+                    if(FALSE !== $dir && is_dir($dir)) {
+                        foreach(glob($dir . DIRECTORY_SEPARATOR . "*", GLOB_MARK) as $e) {
+                            $entries[basename($e)] = filemtime($e);
+                        }
                     }
                     $response->setContent(json_encode($entries));
                 } else { 
@@ -107,6 +104,7 @@ try {
                 }
 
                 $userDirectory = $rootDirectory . DIRECTORY_SEPARATOR . $ro;
+                // FIXME: only create when it does not already exists...
                 createDirectories(array($rootDirectory, $userDirectory));
 
                 // verify scope
@@ -123,19 +121,17 @@ try {
                 }
 
                 if($restInfo->isDirectoryRequest()) {
-                    // create the directory
-                    $newDirectory = $rootDirectory . $restInfo->getPathInfo();
-                    createDirectories(array($newDirectory));
+                    throw new RemoteStorageException("invalid_request", "cannot store a directory");
                 } else {
                     // upload a file
-                    $dir = dirname($rootDirectory . $restInfo->getPathInfo()); 
-                    if(FALSE === $dir) {
+                    $file = $rootDirectory . $restInfo->getPathInfo();
+                    $dir = dirname($file);
+                    if(FALSE === realpath($dir)) {
                         createDirectories(array($dir));
                     }
-                    $file = $rootDirectory . $restInfo->getPathInfo();
                     $contentType = $request->headerExists("Content-Type") ? $request->getHeader("Content-Type") : "application/json";
                     file_put_contents($file, $request->getContent());
-                    // also store the accompanying mime type in the file system extended attribute
+                    // store mime_type
                     if(function_exists("xattr_set")) {
                         xattr_set($file, 'mime_type', $contentType);
                     }
