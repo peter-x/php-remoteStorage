@@ -192,13 +192,16 @@ function requireScope($collection, $permission, $grantedScope) {
         throw new Exception("unsupported permission requested");
     }
     $g = explode(" ", $grantedScope);
-    if(NULL === $collection) {
-        if(!in_array(":" . $permission, $g)) {
-            throw new VerifyException("insufficient_scope", "insufficient permissions for this operation [" . $collection . "," . $permission . "," . $grantedScope . "]");
+
+    if("r" === $permission) {
+        // both "r" and "rw" are okay here
+        if(!in_array($collection . ":r", $g) && !in_array($collection . ":rw", $g) && !in_array(":r", $g) && !in_array(":rw", $g)) {
+            throw new VerifyException("insufficient_scope", "require read permissions for this operation [" . $collection . "," . $permission . "," . $grantedScope . "]");
         }
     } else {
-        if(!in_array($collection . ":" . $permission, $g) && !in_array(":" . $permission, $g)) {
-            throw new VerifyException("insufficient_scope", "insufficient permissions for this operation [" . $collection . "," . $permission . "," . $grantedScope . "]");
+        // only "rw" is okay here
+        if(!in_array($collection . ":rw", $g) && !in_array(":rw", $g)) {
+            throw new VerifyException("insufficient_scope", "require write permissions for this operation [" . $collection . "," . $permission . "," . $grantedScope . "]");
         }
     }
 }
