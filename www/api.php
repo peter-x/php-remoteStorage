@@ -58,18 +58,7 @@ try {
                     throw new RemoteStorageException("access_denied", "storage path belongs to other user");
                 }
 
-                // verify scope
-                $c = $restInfo->getCollection();
-                if(NULL === $c) {
-                    if(!in_array(":rw", $scope) && !in_array(":r", $scope)) {
-                        throw new VerifyException("insufficient_scope", "need read or write scope for this collection");
-                    }
-                } else {
-                    $scope = explode(" ", $token['scope']);
-                    if(!in_array($c . ":r", $scope) && !in_array($c . ":rw", $scope) && !in_array(":rw", $scope) && !in_array(":r", $scope)) {
-                        throw new VerifyException("insufficient_scope", "need read or write scope for this collection");
-                    }
-                }
+                requireScope($restInfo->getCollection(), "r", $token['scope']);
 
                 if($restInfo->isDirectoryRequest()) {
                     // return directory listing
@@ -107,35 +96,25 @@ try {
                 // FIXME: only create when it does not already exists...
                 createDirectories(array($rootDirectory, $userDirectory));
 
-                // verify scope
-                $c = $restInfo->getCollection();
-                if(NULL === $c) {
-                    if(!in_array(":rw", $scope)) {
-                        throw new VerifyException("insufficient_scope", "need write scope for this collection");
-                    }
-                } else {
-                    $scope = explode(" ", $token['scope']);
-                    if(!in_array($c . ":rw", $scope) && !in_array(":rw", $scope)) {
-                        throw new VerifyException("insufficient_scope", "need write scope for this collection");
-                    }
-                }
+                requireScope($restInfo->getCollection(), "rw", $token['scope']);
 
                 if($restInfo->isDirectoryRequest()) {
                     throw new RemoteStorageException("invalid_request", "cannot store a directory");
-                } else {
-                    // upload a file
-                    $file = $rootDirectory . $restInfo->getPathInfo();
-                    $dir = dirname($file);
-                    if(FALSE === realpath($dir)) {
-                        createDirectories(array($dir));
-                    }
-                    $contentType = $request->headerExists("Content-Type") ? $request->getHeader("Content-Type") : "application/json";
-                    file_put_contents($file, $request->getContent());
-                    // store mime_type
-                    if(function_exists("xattr_set")) {
-                        xattr_set($file, 'mime_type', $contentType);
-                    }
-                }   
+                } 
+
+                // upload a file
+                $file = $rootDirectory . $restInfo->getPathInfo();
+                $dir = dirname($file);
+                if(FALSE === realpath($dir)) {
+                    createDirectories(array($dir));
+                }
+                $contentType = $request->headerExists("Content-Type") ? $request->getHeader("Content-Type") : "application/json";
+                file_put_contents($file, $request->getContent());
+                // store mime_type
+                if(function_exists("xattr_set")) {
+                    xattr_set($file, 'mime_type', $contentType);
+                }
+
                 break;
 
             case "DELETE":
@@ -146,18 +125,7 @@ try {
 
                 $userDirectory = $rootDirectory . DIRECTORY_SEPARATOR . $ro;
 
-                // verify scope
-                $c = $restInfo->getCollection();
-                if(NULL === $c) {
-                    if(!in_array(":rw", $scope)) {
-                        throw new VerifyException("insufficient_scope", "need write scope for this collection");
-                    }
-                } else {
-                    $scope = explode(" ", $token['scope']);
-                    if(!in_array($c . ":rw", $scope) && !in_array(":rw", $scope)) {
-                        throw new VerifyException("insufficient_scope", "need write scope for this collection");
-                    }
-                }
+                requireScope($restInfo->getCollection(), "rw", $token['scope']);
 
                 if($restInfo->isDirectoryRequest()) {
                     throw new RemoteStorageException("invalid_request", "directories cannot be deleted");
@@ -215,6 +183,22 @@ function createDirectories(array $directories) {
             if (@mkdir($d, 0775, TRUE) === FALSE) {
                 throw new Exception("unable to create directory");
             }
+        }
+    }
+}
+
+function requireScope($collection, $permission, $grantedScope) {
+    if(!in_array($permission, array("r", "rw"))) {
+        throw new Exception("unsupported permission requested");
+    }
+    $g = explode(" ", $grantedScope);
+    if(NULL === $collection) {
+        if(!in_array(":" . $permission, $g)) {
+            throw new VerifyException("insufficient_scope", "insufficient permissions for this operation [" . $collection . "," . $permission . "," . $grantedScope . "]");
+        }
+    } else {
+        if(!in_array($collection . ":" . $permission, $g) && !in_array(":" . $permission, $g)) {
+            throw new VerifyException("insufficient_scope", "insufficient permissions for this operation [" . $collection . "," . $permission . "," . $grantedScope . "]");
         }
     }
 }
