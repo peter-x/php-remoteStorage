@@ -6,11 +6,11 @@ class HttpRequestException extends Exception {
 
 class HttpRequest {
 
-    private $_uri;
-    private $_method;
-    private $_headers;
-    private $_content;
-    private $_pathInfo;
+    protected $_uri;
+    protected $_method;
+    protected $_headers;
+    protected $_content;
+    protected $_pathInfo;
 
     public function __construct($requestUri, $requestMethod = "GET") {
         $this->setRequestUri(new Uri($requestUri));
@@ -18,6 +18,14 @@ class HttpRequest {
         $this->_headers = array();
         $this->_content = NULL;
         $this->_pathInfo = NULL;
+    }
+
+    public static function fromIncomingHttpRequest(IncomingHttpRequest $i) {
+        $request = new static($i->getRequestUri(), $i->getRequestMethod());
+        $request->setHeaders($i->getRequestHeaders());
+        $request->setContent($i->getContent());
+        $request->setPathInfo($i->getPathInfo());
+        return $request;
     }
 
     public function setRequestUri(Uri $u) {
@@ -102,7 +110,7 @@ class HttpRequest {
      * @returns The name of the header as it was set (original case)
      *
      */
-    private function _getHeaderKey($headerKey) {
+    protected function _getHeaderKey($headerKey) {
         $headerKeys = array_keys($this->_headers);
         $keyPositionInArray = array_search(strtolower($headerKey), array_map('strtolower', $headerKeys));
         return ($keyPositionInArray === FALSE) ? NULL : $headerKeys[$keyPositionInArray];
@@ -147,7 +155,7 @@ class HttpRequest {
         return $this->headerExists("PHP_AUTH_PW") ? $this->getHeader("PHP_AUTH_PW") : NULL;
     }
 
-    public function getCollection() {
+    public function getCollection($asArray = FALSE) {
         if(!is_string($this->_pathInfo)) {
             return FALSE;
         }
@@ -160,7 +168,10 @@ class HttpRequest {
         }
         unset($e[sizeof($e)-1]);
         unset($e[0]);
-        return empty($e) ? FALSE : implode("/", $e);
+        if(empty($e)) {
+            return FALSE;
+        }
+        return $asArray ? array_values($e) : implode("/", $e);
     }
 
     public function getResource() {

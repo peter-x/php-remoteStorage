@@ -6,7 +6,7 @@ require_once "../lib/Http/HttpRequest.php";
 require_once "../lib/Http/HttpResponse.php";
 require_once "../lib/Http/IncomingHttpRequest.php";
 require_once "../lib/OAuth/RemoteResourceServer.php";
-require_once "../lib/Storage/RemoteStorageRestInfo.php";
+require_once "../lib/Storage/RemoteStorageRequest.php";
 require_once "../lib/Storage/RemoteStorageException.php";
 
 $response = new HttpResponse();
@@ -18,24 +18,21 @@ try {
 
     $rootDirectory = $config->getValue('filesDirectory');
 
-    $incomingRequest = new IncomingHttpRequest();
-    $request = $incomingRequest->getRequest();
+    $request = RemoteStorageRequest::fromIncomingHttpRequest(new IncomingHttpRequest());
 
-    $restInfo = new RemoteStorageRestInfo($request->getPathInfo(), $request->getRequestMethod());
-    
     $rs = new RemoteResourceServer($config->getValue("oauthTokenEndpoint"));
 
-    if("OPTIONS" === $restInfo->getRequestMethod()) {
+    if("OPTIONS" === $request->getRequestMethod()) {
         $response->setHeader("Access-Control-Allow-Origin", "*");
         $response->setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Origin");
         $response->setHeader("Access-Control-Allow-Methods", "GET, PUT, DELETE");
-    } else if($restInfo->isPublicRequest() && !$request->headerExists("HTTP_AUTHORIZATION")) { 
+    } else if($request->isPublicRequest() && !$request->headerExists("HTTP_AUTHORIZATION")) { 
         // only GET of item is allowed, nothing else
-        if($restInfo->isDirectoryRequest()) {
+        if($request->isDirectoryRequest()) {
             throw new RemoteStorageException("invalid_request", "not allowed to list contents of public folder");
         }
         // public but not listing, return file if it exists...
-        $file = realpath($rootDirectory . $restInfo->getPathInfo());
+        $file = realpath($rootDirectory . $request->getPathInfo());
         if(FALSE === $file || !is_file($file)) {
             throw new RemoteStorageException("not_found", "file not found");
         }
@@ -51,28 +48,32 @@ try {
         $token = $rs->verify($request->getHeader("HTTP_AUTHORIZATION"));
 
         // handle API
-        switch($restInfo->getRequestMethod()) {
+        switch($request->getRequestMethod()) {
             case "GET":
-                $ro = $restInfo->getResourceOwner();
+                $ro = $request->getResourceOwner();
                 if($ro !== $token['resource_owner_id']) {
                     throw new RemoteStorageException("access_denied", "storage path belongs to other user");
                 }
 
-                requireScope($restInfo->getCollection(), "r", $token['scope']);
+                requireScope($request->getCategory(), "r", $token['scope']);
 
-                if($restInfo->isDirectoryRequest()) {
+                if($request->isDirectoryRequest()) {
                     // return directory listing
-                    $dir = realpath($rootDirectory . $restInfo->getPathInfo());
+                    $dir = realpath($rootDirectory . $request->getPathInfo());
                     $entries = array();
                     if(FALSE !== $dir && is_dir($dir)) {
-                        foreach(glob($dir . DIRECTORY_SEPARATOR . "*", GLOB_MARK) as $e) {
-                            $entries[basename($e)] = filemtime($e);
+                        $cwd = getcwd();
+                        chdir($dir);
+                        foreach(glob("*", GLOB_MARK) as $e) {
+                            //$entries[basename($e)] = filemtime($e);
+                            $entries[$e] = filemtime($e);
                         }
+                        chdir($cwd);
                     }
                     $response->setContent(json_encode($entries));
                 } else { 
                     // accessing file, return file if it exists...
-                    $file = realpath($rootDirectory . $restInfo->getPathInfo());
+                    $file = realpath($rootDirectory . $request->getPathInfo());
                     if(FALSE === $file || !is_file($file)) {
                         throw new RemoteStorageException("not_found", "file not found");
                     }
@@ -87,7 +88,7 @@ try {
                 break;
     
             case "PUT":
-                $ro = $restInfo->getResourceOwner();
+                $ro = $request->getResourceOwner();
                 if($ro !== $token['resource_owner_id']) {
                     throw new RemoteStorageException("access_denied", "storage path belongs to other user");
                 }
@@ -96,14 +97,14 @@ try {
                 // FIXME: only create when it does not already exists...
                 createDirectories(array($rootDirectory, $userDirectory));
 
-                requireScope($restInfo->getCollection(), "rw", $token['scope']);
+                requireScope($request->getCategory(), "rw", $token['scope']);
 
-                if($restInfo->isDirectoryRequest()) {
+                if($request->isDirectoryRequest()) {
                     throw new RemoteStorageException("invalid_request", "cannot store a directory");
                 } 
 
                 // upload a file
-                $file = $rootDirectory . $restInfo->getPathInfo();
+                $file = $rootDirectory . $request->getPathInfo();
                 $dir = dirname($file);
                 if(FALSE === realpath($dir)) {
                     createDirectories(array($dir));
@@ -118,20 +119,20 @@ try {
                 break;
 
             case "DELETE":
-                $ro = $restInfo->getResourceOwner();
+                $ro = $request->getResourceOwner();
                 if($ro !== $token['resource_owner_id']) {
                     throw new RemoteStorageException("access_denied", "storage path belongs to other user");
                 }
 
                 $userDirectory = $rootDirectory . DIRECTORY_SEPARATOR . $ro;
 
-                requireScope($restInfo->getCollection(), "rw", $token['scope']);
+                requireScope($request->getCategory(), "rw", $token['scope']);
 
-                if($restInfo->isDirectoryRequest()) {
+                if($request->isDirectoryRequest()) {
                     throw new RemoteStorageException("invalid_request", "directories cannot be deleted");
                 }
 
-                $file = $rootDirectory . $restInfo->getPathInfo();            
+                $file = $rootDirectory . $request->getPathInfo();            
                 if(!file_exists($file)) {
                     throw new RemoteStorageException("not_found", "file not found");
                 }
