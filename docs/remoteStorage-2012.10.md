@@ -285,29 +285,29 @@ returned:
 
     {"error":"access_denied","error_description":"storage path belongs to other user"}
 
-This error is only relevant if there is some way for the application to refer
+This error is only relevant if there is some way for an application to refer
 to another user's *storageRoot*. Depending on the implementation this may not
-be possible.
+even be possible.
 
 Other errors relating to e.g. the OAuth scope are specified in _The OAuth 2.0 
 Authorization Framework: Bearer Token Usage_. This MUST be followed.
 
 # Authorization
 For the authorization, i.e.: what application is allowed to do what _The OAuth 
-2.0 Authorization Framework_ specification is used. The following is a list of 
-what is needed for the implementation:
+2.0 Authorization Framework_ specification needs to be implemented. The above
+remoteStorage service is referred to as the "Resource Server" while the OAuth 
+service distributing access tokens is referred to as the "Authorization Server".
 
-* Support the "Implicit Grant" type from section 4.2;
-* Use _The OAuth 2.0 Authorization Framework: Bearer Token Usage_
-* Bearer access tokens do not expire, i.e. they are valid until revoked;
+The OAuth service MUST implement the "Implict Grant" token type as specified in
+the OAuth specification (RFC XXXX) in section 4.2. Furthermore, the "Bearer" 
+token type (RFC XXXX) MUST be implemented.
 
-Before an application can use the _remoteStorage_ API it needs to obtain a 
-`Bearer` token. This token is opaque, i.e.: a secure random generated string 
-encoded to the base64 alphabet as specified in the HTTP Bearer token 
-specification.
-
-Furthermore, the access token needs to have a scope belonging to the directory
-the application wants to access. 
+The OAuth specification recommends that access tokens, i.e.: Bearer tokens, do
+expire and recommend a 1 hour expiry time. Due to the nature of user agent 
+based applications this may result in user experience degradation as the 
+browser needs to fetch a new access token every hour. It is left to the 
+implementor to implement access token expiry, however to improve user experience 
+it is RECOMMENDED to use an expiry time between 8 and 24 hours.
 
 ## Scopes
 The scopes from the OAuth specification are also used in the _remoteStorage_ 
@@ -348,7 +348,10 @@ These scopes, without directory, indicate they are valid for *all* directories
 under *storageRoot*. Care should be taken to not give this permission to 
 applications that do not need it.
 
-# Application Registration
+## OAuth Client Registration
+
+**FIXME**: this should not be here! Out of scope!
+
 All applications need to be registered in the OAuth server as clients. This can 
 be done automatically be subscribing the server to a trusted "app store" 
 that provides a list of verified applications. 
@@ -370,6 +373,7 @@ available from the app store:
             "description": "Manage your TODO list.", 
             "icons": {
                 "128": "https://todomvc.example.org/icon_x128.png"
+                "64": "https://todomvc.example.org/icon_x64.png"
             }, 
             "key": "yiZH3dk49O4n", 
             "name": "TodoMVC", 
@@ -406,11 +410,10 @@ available applications and make it possible to register user consent for a
 specific application to get access to their files as an optimization for the 
 user experience.
 
-# Application Launch
+# Launching Applications
 
-The applications are launched from the portal by providing it with additional
-parameters in the fragment part of the URL. There are two parameters 
-specified:
+The applications can be launched by providing it with additional parameters in 
+the fragment part of the URL. There are two parameters specified:
 
 * `storage_root` - URL pointing to the *storageRoot*
 * `authorize_endpoint` - URL pointing to the OAuth authorize endpoint
@@ -425,6 +428,13 @@ A full URL then looks like this:
     https://todomvc.example.org/#storage_root=https://www.example.org/remoteStorage/api/john.doe/&authorize_endpoint=https://auth.example.org/oauth2/authorize
 
 # Versioning
+
+**FIXME**: maybe the server should just return a response anyway of whichever 
+version and indicate that in the `Content-Type` header???
+
+**FIXME**: this of course does not really work as **ALL** content types can
+be returned depending on what the user uploaded...
+
 The application and the storage server need to negotiate a version of the 
 protocol to use. 
 
@@ -446,18 +456,34 @@ to be sent back to the client indicating this:
     
     {"error":"unsuppored_version","error_description":"the requested version is not supported"}
 
-**FIXME**: maybe the server should just return a response anyway of whichever 
-version and indicate that in the `Content-Type` header???
-
-**FIXME**: this of course does not really work as **ALL** content types can
-be returned depending on what the user uploaded...
-
 # Storage First
-In order to avoid the discovery problems introduced by implementing Webfinger
-with CORS headers all around the Internet on all user domains a scenario 
-for "storage first" is provided. Here, the user will browse to the service 
-providing an "app launch" screen. This app launch screen provides a list of all 
-available and installed applications and allows the user to launch them.
+In order to solve the storage discovery problems as mentioned in the 
+introduction introduced a scenario for "Storage First" is described. In this 
+scenario the user will browse to a URL which provides an "app launch" or 
+portal screen. This portal would provide a list of all available and installed 
+applications and allows the user to launch them.
+
+For example, this launch screen can provide a list of all registered OAuth 
+clients and make it possible to launch them by using the `redirect_uri` 
+together with the parameters provided in the previous section. 
+
+For example, the launch screen has a list of applications like this:
+
+    <ul>
+      <li><a href="https://todomvc.example.org/#storage_root=https://www.example.org/remoteStorage/api/john.doe/&authorize_endpoint=https://auth.example.org/oauth2/authorize">TodoMVC</a></li>
+      <li>...</li>
+      <li>...</li>
+      <li>...</li>
+    </ul>
+
+As an optimization the portal can also register the "consent" from the user 
+immediately in the OAuth authorization server, thus reducing the steps the user
+needs to take when launching an application. The registration of this "consent"
+could be triggered by e.g. an "Install" button for each application. 
+
+Depending on the OAuth authorization server there may be an API available to do
+this from the portal site. However, this API is out of scope for this 
+specification.
 
 # TODO
 * specify something for the management of the OAuth client registrations?
@@ -465,6 +491,7 @@ available and installed applications and allows the user to launch them.
   to implement _remoteStorage_, put it in one section
 * describe the API to register user consent this is a MAY (optimization)
 * apps MUST/SHOULD? be registered in OAuth client table
+* update chunked uploading stuff
 
 # References
 * The OAuth 2.0 Authorization Framework
