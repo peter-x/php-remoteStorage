@@ -204,6 +204,18 @@ forward slash (`/`), an error needs to be given back to the client:
 **FIXME**: this may be a problem when implementing versioning and the 
 `Content-Type` header needs to contain the version?
 
+In case large files need to be uploaded it SHOULD be possible to upload files 
+in pieces, or chunks. To upload files in chunks two headers need to be 
+specified in the request:
+
+* `X-File-Size`: the file size of the complete file in bytes;
+* `X-File-Chunk`: the current chunk number;
+
+**FIXME**: we should really figure out some better way to do this than 
+providing a proprietary API here... Should use existing approaches!
+
+**FIXME**: use byte ranges instead of chunk numbers
+
 ## Delete a file
 Files can be deleted using the `DELETE` verb. Directories cannot be deleted. 
 
