@@ -70,7 +70,7 @@ try {
                         }
                         chdir($cwd);
                     }
-                    $response->setContent(json_encode($entries));
+                    $response->setContent(json_encode($entries, JSON_FORCE_OBJECT));
                 } else { 
                     // accessing file, return file if it exists...
                     $file = realpath($rootDirectory . $request->getPathInfo());
@@ -152,25 +152,25 @@ try {
     } else {
         $response->setStatusCode(401);
         $response->setHeader("WWW-Authenticate", sprintf('Bearer realm="Resource Server"'));
-        $response->setContent(json_encode(array("error"=> "not_authorized", "error_description" => "need authorization to access this service")));
+        $response->setContent(json_encode(array("error"=> "not_authorized", "error_description" => "need authorization to access this service"), JSON_FORCE_OBJECT));
     }   
 } catch (Exception $e) {
     switch(get_class($e)) {
         case "VerifyException":
             $response->setStatusCode($e->getResponseCode());
             $response->setHeader("WWW-Authenticate", sprintf('Bearer realm="Resource Server",error="%s",error_description="%s"', $e->getMessage(), $e->getDescription()));
-            $response->setContent(json_encode(array("error" => $e->getMessage(), "error_description" => $e->getDescription())));
+            $response->setContent(json_encode(array("error" => $e->getMessage(), "error_description" => $e->getDescription()), JSON_FORCE_OBJECT));
             break;
 
         case "RemoteStorageException":
             $response->setStatusCode($e->getResponseCode());
-            $response->setContent(json_encode(array("error" => $e->getMessage(), "error_description" => $e->getDescription())));
+            $response->setContent(json_encode(array("error" => $e->getMessage(), "error_description" => $e->getDescription()), JSON_FORCE_OBJECT));
             break;
 
         default:
             // any other error thrown by any of the modules, assume internal server error
             $response->setStatusCode(500);
-            $response->setContent(json_encode(array("error" => "internal_server_error", "error_description" => $e->getMessage())));
+            $response->setContent(json_encode(array("error" => "internal_server_error", "error_description" => $e->getMessage()), JSON_FORCE_OBJECT));
             break;
     }
 
