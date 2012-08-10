@@ -101,12 +101,14 @@ instead.
 
     HTTP/1.1 200 OK
     Content-Type: application/json
+    ETag: "d101b2fc6be2e96bed2a6f008f4308ec"
 
     [{"start":"09:00","end":"10:00","activity":"Shopping"},{"start":"12:00","end":"13:00","activity":"Lunch"}]
 
 The `Content-Type` given back to the client MUST be identical to the value that
 was specified while uploading the file using `PUT`, described in the section 
-below.
+below. The `ETag` header SHOULD be present and it is an opaque identifier for
+the content of the file, in accordance with the HTTP protocol.
 
 If a file does not exist, a `404 Not Found` is returned: 
 
@@ -127,6 +129,9 @@ If a file does not exist, a `404 Not Found` is returned:
     Content-Type: application/json
 
     {"14":1344251958,"16":1344249635,"23":1344027615}
+
+For directories, the `ETag` header is usually omitted and it is not
+specified how its value depends on the directory's contents.
 
 If a directory does not exist or even if it is a file, an empty list is 
 returned:
@@ -238,6 +243,15 @@ forward slash, an error needs to be given back to the client:
 
     {"error":"invalid_request","error_description":"a directory cannot be deleted"}
 
+## Concurrency Control
+
+In `GET` and `PUT` requests, the server SHOULD understand the following request
+headers and act according to the HTTP protocol, as this is vital to implement
+concurrency control in the clients:
+
+* `If-Match`
+* `If-None-Match`
+
 ## Public Files
 There is a "special" `public` directory in the *storageRoot* indicating that all 
 files under this directory are public. This means the `GET` call for a file and
@@ -256,7 +270,7 @@ cross origin requests are allowed.
 ### Response
 
     Access-Control-Allow-Origin: *
-    Access-Control-Allow-Headers: Content-Type, Authorization, Origin, Content-Range, Content-Length
+    Access-Control-Allow-Headers: Content-Type, Authorization, Origin, Content-Range, Content-Length, If-Match, If-None-Match
     Access-Control-Allow-Methods: GET, PUT, DELETE
 
 ## Error Handling
