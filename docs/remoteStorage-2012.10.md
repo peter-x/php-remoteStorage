@@ -430,13 +430,7 @@ A full URL then looks like this:
 
     https://todomvc.example.org/#storage_root=https://www.example.org/remoteStorage/api/john.doe/&authorize_endpoint=https://auth.example.org/oauth2/authorize
 
-# Versioning
-
-**FIXME**: maybe the server should just return a response anyway of whichever 
-version and indicate that in the `Content-Type` header???
-
-**FIXME**: this of course does not really work as **ALL** content types can
-be returned depending on what the user uploaded...
+# Protocol Versioning
 
 The application and the storage server need to negotiate a version of the 
 protocol to use. 
@@ -445,11 +439,11 @@ The following header specifies that you want to use the latest version of the
 specification implemented by the server. This is NOT RECOMMENDED for production
 use:
 
-    Accept: application/json
+    X-RemoteStorage-Version: *
 
-To specify a specific version use the following `Accept` header:
+To specify a specific version use the following value:
 
-    Accept: application/vnd.remoteStorage.2012.10+json
+    X-RemoteStorage-Version: remoteStorage.2012.10
 
 If the request version is not supported by the server an error message SHOULD
 to be sent back to the client indicating this:
@@ -458,6 +452,12 @@ to be sent back to the client indicating this:
     Content-Type: application/json
     
     {"error":"unsuppored_version","error_description":"the requested version is not supported"}
+
+Additionally, every server response MUST contain the version header (even if
+the request did not contain such a header) indicating the remoteStorage protocol
+version used:
+
+    X-RemoteStorage-Version: remoteStorage.2012.10
 
 # Storage First
 In order to solve the storage discovery problems as mentioned in the 
