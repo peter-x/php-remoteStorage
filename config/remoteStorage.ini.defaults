@@ -1,4 +1,7 @@
 ; This is the default configuration for the remoteStorage provider
 
 filesDirectory = "/PATH/TO/APP/data/files"
+
+logDirectory = "/PATH/TO/APP/data/logs"
+
 oauthTokenEndpoint = "http://localhost/php-oauth/token.php"

@@ -1,6 +1,7 @@
 <?php
 
 require_once "../lib/Config.php";
+require_once "../lib/Logger.php";
 require_once "../lib/Http/Uri.php";
 require_once "../lib/Http/HttpRequest.php";
 require_once "../lib/Http/HttpResponse.php";
@@ -15,9 +16,7 @@ $response->setHeader("Access-Control-Allow-Origin", "*");
 
 try { 
     $config = new Config(dirname(__DIR__) . DIRECTORY_SEPARATOR . "config" . DIRECTORY_SEPARATOR . "remoteStorage.ini");
-
     $rootDirectory = $config->getValue('filesDirectory');
-
     $request = RemoteStorageRequest::fromIncomingHttpRequest(new IncomingHttpRequest());
 
     $rs = new RemoteResourceServer($config->getValue("oauthTokenEndpoint"));
@@ -153,24 +152,34 @@ try {
         $response->setStatusCode(401);
         $response->setHeader("WWW-Authenticate", sprintf('Bearer realm="Resource Server"'));
         $response->setContent(json_encode(array("error"=> "not_authorized", "error_description" => "need authorization to access this service"), JSON_FORCE_OBJECT));
+        $logger = new Logger($config->getValue('logDirectory') . DIRECTORY_SEPARATOR . "remoteStorage.log");
+        $logger->logFatal("not_authorized: need authorization to access this service");
     }   
 } catch (Exception $e) {
+    $config = new Config(dirname(__DIR__) . DIRECTORY_SEPARATOR . "config" . DIRECTORY_SEPARATOR . "remoteStorage.ini");
+    $logger = new Logger($config->getValue('logDirectory') . DIRECTORY_SEPARATOR . "remoteStorage.log");
     switch(get_class($e)) {
         case "VerifyException":
             $response->setStatusCode($e->getResponseCode());
             $response->setHeader("WWW-Authenticate", sprintf('Bearer realm="Resource Server",error="%s",error_description="%s"', $e->getMessage(), $e->getDescription()));
             $response->setContent(json_encode(array("error" => $e->getMessage(), "error_description" => $e->getDescription()), JSON_FORCE_OBJECT));
+            $logger->logFatal($e->getLogMessage(TRUE));
             break;
 
         case "RemoteStorageException":
             $response->setStatusCode($e->getResponseCode());
             $response->setContent(json_encode(array("error" => $e->getMessage(), "error_description" => $e->getDescription()), JSON_FORCE_OBJECT));
+            $logger->logFatal($e->getLogMessage(TRUE));
             break;
 
         default:
             // any other error thrown by any of the modules, assume internal server error
             $response->setStatusCode(500);
             $response->setContent(json_encode(array("error" => "internal_server_error", "error_description" => $e->getMessage()), JSON_FORCE_OBJECT));
+
+            $msg = 'Message    : ' . $this->getMessage() . PHP_EOL;
+            $msg .= 'Trace      : ' . PHP_EOL . $this->getTraceAsString() . PHP_EOL;
+            $logger->logFatal($msg);
             break;
     }
 
