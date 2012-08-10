@@ -205,16 +205,19 @@ forward slash (`/`), an error needs to be given back to the client:
 `Content-Type` header needs to contain the version?
 
 In case large files need to be uploaded it SHOULD be possible to upload files 
-in pieces, or chunks. To upload files in chunks two headers need to be 
-specified in the request:
+in pieces. This is done by supplying the `Content-Range` header in accordance
+with the HTTP protocol:
 
-* `X-File-Size`: the file size of the complete file in bytes;
-* `X-File-Chunk`: the current chunk number;
+    PUT /remoteStorage/api/john.doe/calendar/2012/10/24 HTTP/1.1
+    Content-Type: application/json
+    Content-Range: bytes 21010-47021/47022
+    Content-Length: 26012
+    
+    art":"11:00","end":"11:30","ac...
 
-**FIXME**: we should really figure out some better way to do this than 
-providing a proprietary API here... Should use existing approaches!
-
-**FIXME**: use byte ranges instead of chunk numbers
+If the server supports the `Content-Range` header in `PUT` requests, it MUST
+replace the given bytes in the file or extend it. If the file it is extended,
+the skipped parts MUST be filled with zero-bytes.
 
 ## Delete a file
 Files can be deleted using the `DELETE` verb. Directories cannot be deleted. 
@@ -253,7 +256,7 @@ cross origin requests are allowed.
 ### Response
 
     Access-Control-Allow-Origin: *
-    Access-Control-Allow-Headers: Content-Type, Authorization, Origin
+    Access-Control-Allow-Headers: Content-Type, Authorization, Origin, Content-Range, Content-Length
     Access-Control-Allow-Methods: GET, PUT, DELETE
 
 ## Error Handling
@@ -491,7 +494,6 @@ specification.
   to implement _remoteStorage_, put it in one section
 * describe the API to register user consent this is a MAY (optimization)
 * apps MUST/SHOULD? be registered in OAuth client table
-* update chunked uploading stuff
 
 # References
 * The OAuth 2.0 Authorization Framework
