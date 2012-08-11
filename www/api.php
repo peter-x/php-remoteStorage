@@ -23,12 +23,15 @@ try {
 
     if("OPTIONS" === $request->getRequestMethod()) {
         $response->setHeader("Access-Control-Allow-Origin", "*");
-        $response->setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Origin");
-        $response->setHeader("Access-Control-Allow-Methods", "GET, PUT, DELETE");
+        $response->setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Origin, If-None-Match, If-Match");
+        $response->setHeader("Access-Control-Allow-Methods", "GET, PUT, DELETE, HEAD");
     } else if($request->isPublicRequest() && !$request->headerExists("HTTP_AUTHORIZATION")) { 
         // only GET of item is allowed, nothing else
         if($request->isDirectoryRequest()) {
             throw new RemoteStorageException("invalid_request", "not allowed to list contents of public folder");
+        }
+        if ($request->getRequestMethod() != 'HEAD' && $request->getRequestMethod() != 'GET') {
+            throw new RemoteStorageException("invalid_request", "only GET and HEAD allowed");
         }
         // public but not listing, return file if it exists...
         $file = realpath($rootDirectory . $request->getPathInfo());
@@ -41,7 +44,21 @@ try {
             $mimeType = "application/json";
         }
         $response->setHeader("Content-Type", $mimeType);
-        $response->setContent(file_get_contents($file));
+        /* XXX we should better lock that file here */
+        $etag = getETag($file);
+        $response->setHeader("ETag: " . $etag);
+
+        $outputContents = true;
+        if ($request->getRequestMethod() == 'HEAD') {
+            $outputContents = false;
+        }
+
+        if (doIfMatchChecks($etag, $request, $response)) {
+            $outputContents = false;
+        }
+
+        if ($outputContents)
+            $response->setContent(file_get_contents($file));
     } else if ($request->headerExists("HTTP_AUTHORIZATION")) {
         // not public or public with Authorization header
         $token = $rs->verify($request->getHeader("HTTP_AUTHORIZATION"));
@@ -49,6 +66,7 @@ try {
         // handle API
         switch($request->getRequestMethod()) {
             case "GET":
+            case "HEAD":
                 $ro = $request->getResourceOwner();
                 if($ro !== $token['resource_owner_id']) {
                     throw new RemoteStorageException("access_denied", "storage path belongs to other user");
@@ -69,7 +87,8 @@ try {
                         }
                         chdir($cwd);
                     }
-                    $response->setContent(json_encode($entries, JSON_FORCE_OBJECT));
+                    if ($request->getRequestMethod() != 'HEAD')
+                        $response->setContent(json_encode($entries, JSON_FORCE_OBJECT));
                 } else { 
                     // accessing file, return file if it exists...
                     $file = realpath($rootDirectory . $request->getPathInfo());
@@ -82,7 +101,16 @@ try {
                         $mimeType = "application/json";
                     }
                     $response->setHeader("Content-Type", $mimeType);
-                    $response->setContent(file_get_contents($file));
+                   
+                    $etag = getETag($file);
+                    /* XXX we should better lock that file here */
+                    $response->setHeader("ETag: " . $etag);
+                    
+                    if (doIfMatchChecks($etag, $request, $response))
+                        break;
+
+                    if ($request->getRequestMethod() != 'HEAD')
+                        $response->setContent(file_get_contents($file));
                 }
                 break;
     
@@ -108,6 +136,13 @@ try {
                 if(FALSE === realpath($dir)) {
                     createDirectories(array($dir));
                 }
+
+                /* XXX we should better lock that file here */
+                $etag = file_exists($file) ? getETag($file) : NULL;
+                if (doIfMatchChecks($etag, $request, $response)) {
+                    break;
+                }
+                
                 $contentType = $request->headerExists("Content-Type") ? $request->getHeader("Content-Type") : "application/json";
                 file_put_contents($file, $request->getContent());
                 // store mime_type
@@ -138,6 +173,13 @@ try {
                 if(!is_file($file)) {
                     throw new RemoteStorageException("invalid_request", "object is not a file");
                 }
+                
+                /* XXX we should better lock that file here */
+                $etag = file_exists($file) ? getETag($file) : NULL;
+                if (doIfMatchChecks($etag, $request, $response)) {
+                    break;
+                }
+                
                 if (@unlink($file) === FALSE) {
                     throw new Exception("unable to delete file");
                 }
@@ -194,6 +236,43 @@ function createDirectories(array $directories) {
                 throw new Exception("unable to create directory");
             }
         }
+    }
+}
+
+function getETag($file) {
+    $fs = stat($file);
+    return sprintf('"%x-%x-%s"', $fs['ino'], $fs['size'],
+                   base_convert(str_pad($fs['mtime'], 16, "0"), 10, 16));
+}
+
+/* supply NULL for $etag if file is not present */
+function doIfMatchChecks($etag, $request, $response) {
+    /* XXX better use an exception? */
+    if ($request->headerExists("If-Match")) {
+        /* XXX the client could specify multiple ETags separated by comma */
+        $match = $request->getHeader("If-Match");
+        if (($match === '*' && $etag !== NULL) ||
+                    ($match !== '*' && $match === $etag)) {
+            return FALSE;
+        }
+        $response->setStatusCode("412");
+        return TRUE;
+    } else if ($request->headerExists("If-None-Match")) {
+        /* XXX the client could specify multiple ETags separated by comma */
+        $match = $request->getHeader("If-None-Match");
+        if (($match === '*' && $etag === NULL) ||
+                ($match !== '*' && $match !== $etag)) {
+            return FALSE;
+        }
+        $method = $request->getRequestMethod();
+        if ($method === 'HEAD' || $method === 'GET') {
+            $response->setStatusCode('304');
+        } else {
+            $response->setStatusCode('412');
+        }
+        return TRUE;
+    } else {
+        return FALSE;
     }
 }
 
